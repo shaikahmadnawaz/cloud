@@ -292,3 +292,234 @@ You might plan your VNet as follows:
 | DbSubnet    | `10.0.3.0/24` | Database servers (isolated)          |
 
 ---
+
+### **NSG (Network Security Group)** vs. **ASG (Application Security Group)** in Azure
+
+Both **NSGs** and **ASGs** are essential components in managing and securing traffic within a Virtual Network (VNet) in Azure, but they serve different purposes. Here's an overview of each:
+
+---
+
+### 1. **NSG (Network Security Group)**
+
+**NSG** is a core component in Azure networking used to control **inbound and outbound traffic** to network interfaces (NICs), VMs, or subnets within a VNet. It works as a virtual firewall with **rules** that allow or deny traffic based on certain conditions like **IP addresses**, **ports**, and **protocols**.
+
+#### Key Features:
+
+- **Security Rules**: An NSG consists of inbound and outbound security rules that determine what traffic is allowed or denied.
+  - Example rule: Allow HTTP traffic (port 80) from the internet to a specific VM.
+- **Applied to Subnets or NICs**: You can apply an NSG to:
+  - **Subnet**: Affects all resources in the subnet.
+  - **Network Interface (NIC)**: Affects only the associated VM or resource.
+- **Direction**: NSG rules can be for inbound or outbound traffic.
+- **Priority**: Rules have priority values, and Azure evaluates the rules in ascending order, applying the first matching rule.
+
+#### Example Scenario for NSG:
+
+You have a web application hosted on Azure, and you want to:
+
+- **Allow inbound traffic** to the web servers on **port 80 (HTTP)** and **port 443 (HTTPS)**.
+- **Deny all other inbound traffic**.
+- Allow **outbound traffic** only to specific external services or APIs.
+
+#### Example of NSG Rules:
+
+| Priority | Source          | Source Port | Destination | Destination Port | Protocol | Action |
+| -------- | --------------- | ----------- | ----------- | ---------------- | -------- | ------ |
+| 100      | Internet        | \*          | WebSubnet   | 80, 443          | TCP      | Allow  |
+| 200      | Virtual Network | \*          | WebSubnet   | \*               | \*       | Allow  |
+| 300      | WebSubnet       | \*          | AppSubnet   | \*               | \*       | Allow  |
+| 400      | \*              | \*          | WebSubnet   | \*               | \*       | Deny   |
+
+---
+
+### 2. **ASG (Application Security Group)**
+
+**ASG** is a more flexible way to group resources such as VMs and apply security rules based on **logical groupings** rather than individual IP addresses or NICs. ASGs simplify the management of NSG rules by allowing you to create dynamic groups of VMs, enabling you to apply security policies to these groups.
+
+#### Key Features:
+
+- **Logical Grouping**: ASGs allow you to group VMs or network interfaces based on application tiers (e.g., **WebServers**, **DatabaseServers**, etc.), making it easier to manage security policies.
+- **Used with NSG**: You use ASGs within an NSG to apply security rules to a group of VMs rather than specifying individual IP addresses.
+- **Dynamic Membership**: You can add or remove resources from an ASG without modifying the security rules. This is useful for dynamic environments, such as scaling out a web server farm.
+
+#### Example Scenario for ASG:
+
+You have a multi-tier application with:
+
+- A group of **Web Servers**.
+- A group of **Database Servers**.
+
+You want the **Web Servers** to communicate with the **Database Servers** on specific ports, and to control access based on group membership instead of IP addresses.
+
+#### Example of ASG Usage in NSG:
+
+1. **Create ASGs**:
+
+   - **ASG-WebServers**: Group containing all web server VMs.
+   - **ASG-DbServers**: Group containing all database server VMs.
+
+2. **Define NSG Rules using ASGs**:
+
+   - Allow traffic from **ASG-WebServers** to **ASG-DbServers** on port **1433** (SQL Server).
+   - Deny all other traffic between groups.
+
+   | Priority | Source ASG     | Destination ASG | Port | Protocol | Action |
+   | -------- | -------------- | --------------- | ---- | -------- | ------ |
+   | 100      | ASG-WebServers | ASG-DbServers   | 1433 | TCP      | Allow  |
+   | 200      | \*             | ASG-WebServers  | \*   | \*       | Deny   |
+
+### 3. **Key Differences between NSG and ASG**
+
+| **Feature**         | **NSG (Network Security Group)**                                 | **ASG (Application Security Group)**                                |
+| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Purpose**         | Control traffic to/from resources based on IP, port, protocol    | Logical grouping of VMs or NICs for easier application of NSG rules |
+| **Scope**           | Can be applied to a subnet or individual NIC/VM                  | Cannot apply rules on its own; used within NSG rules                |
+| **Traffic Control** | Controls traffic using IP addresses, port numbers, and protocols | Controls traffic between groups of resources without specifying IPs |
+| **Use Case**        | Enforcing security rules for individual resources or subnets     | Simplifying NSG rules for application tiers or dynamic workloads    |
+| **Management**      | Requires specifying IP addresses or ranges                       | Simplifies management by grouping resources logically               |
+| **Flexibility**     | Less flexible for large-scale management of dynamic resources    | More flexible, allowing easier management and scaling of VMs        |
+| **Example Usage**   | Enforcing inbound/outbound security for a subnet or VM           | Grouping VMs into web, app, and database tiers for easier NSG rules |
+
+### 4. **Using NSG and ASG Together**
+
+You typically use **NSG** and **ASG** together for better manageability:
+
+- **NSG** is the firewall that enforces security policies.
+- **ASG** is used within the NSG rules to create logical groupings, simplifying rule management.
+
+For example, you can create a rule in the NSG that allows communication between ASGs (like WebServers and DbServers) rather than managing IP addresses and individual VMs.
+
+---
+
+### **Route Tables in Azure**
+
+**Route Tables** in Azure, also known as **User-Defined Routes (UDR)**, control the flow of network traffic within and outside of a Virtual Network (VNet). By default, Azure sets up some routes, but you can also create custom route tables to direct traffic according to your requirements.
+
+---
+
+### 1. **Default Routing in Azure VNets**
+
+When you create a VNet in Azure, Azure automatically handles routing to enable basic connectivity:
+
+- **Within the VNet**: VMs in the same VNet can communicate with each other automatically.
+- **Between Subnets**: Subnets within the same VNet have automatic connectivity unless otherwise restricted (e.g., with Network Security Groups).
+- **Outbound to the Internet**: Traffic to public IP addresses is routed through the default internet gateway if the VM has a public IP.
+- **Inbound via VPN/ExpressRoute**: Routes are created automatically for traffic between VNets and on-premises networks when you configure **VPN** or **ExpressRoute**.
+
+---
+
+### 2. **User-Defined Routes (UDR)**
+
+While the default routes work for most scenarios, there are cases where you need more control. This is where **User-Defined Routes (UDR)** come in. You can create custom routes to direct traffic through **Network Virtual Appliances (NVAs)**, **firewalls**, or other destinations.
+
+#### Common Use Cases for Custom Route Tables:
+
+- **Traffic Filtering**: Route traffic through a **firewall** or a **Network Virtual Appliance (NVA)** for filtering.
+- **Forced Tunneling**: Direct all outbound internet traffic through an **on-premises** network (via VPN or ExpressRoute) instead of directly through Azure’s internet gateway.
+- **Custom Routing for Subnets**: Control the traffic between different subnets, VNets, or external networks by specifying next-hop addresses.
+
+---
+
+### 3. **Components of a Route Table**
+
+A Route Table consists of one or more **routes**. Each route defines the **destination** and the **next hop**.
+
+#### Key Components of a Route:
+
+- **Address Prefix (Destination)**: The destination IP range (in CIDR notation) that the route applies to.
+- **Next Hop Type**: Specifies where the traffic should be directed. Available types include:
+  - **Virtual Network Gateway**: Used to route traffic through an Azure VPN Gateway for on-premises connections.
+  - **Virtual Network**: Default route within the VNet.
+  - **Internet**: Directs traffic to the internet.
+  - **Virtual Appliance**: Directs traffic to a **Network Virtual Appliance (NVA)**, such as a firewall or load balancer, using its private IP.
+  - **None**: Blocks traffic to the specified address range.
+
+#### Example of Custom Route Table:
+
+| **Destination** | **Next Hop Type** | **Next Hop Address** |
+| --------------- | ----------------- | -------------------- |
+| 10.0.2.0/24     | Virtual Appliance | 10.0.1.4 (NVA)       |
+| 0.0.0.0/0       | Internet          | N/A                  |
+| 10.0.0.0/16     | Virtual Network   | N/A                  |
+
+---
+
+### 4. **Creating a Custom Route Table**
+
+To create a custom route table and associate it with a subnet:
+
+1. **Create a Route Table**:
+
+   - Go to **Azure Portal**.
+   - Search for **Route Tables**.
+   - Click **Add** and provide a name, resource group, and region.
+
+2. **Add Routes to the Route Table**:
+
+   - Within the route table, go to the **Routes** section and click **Add**.
+   - Define the **Address Prefix** (destination) and choose the **Next Hop Type**.
+   - For example, you might route traffic to an **NVA** using the **Virtual Appliance** option.
+
+3. **Associate the Route Table with a Subnet**:
+   - In the Route Table page, click **Subnets**.
+   - Select the VNet and subnet to which you want to associate the route table.
+   - Click **Save**.
+
+---
+
+### 5. **Example Scenarios for Route Tables**
+
+#### 1. **Traffic through an NVA (Firewall)**
+
+You might want to route all internal traffic through a firewall or NVA for logging, inspection, or filtering.
+
+**Scenario**: VMs in Subnet A need to send traffic to Subnet B, but all traffic must go through a firewall.
+
+- Create a custom route table for Subnet A, where the **next hop** is the IP of the NVA (firewall).
+- Associate the route table with Subnet A.
+
+**Route Table Example**:
+| Destination | Next Hop Type | Next Hop Address |
+|--------------|------------------|-------------------|
+| 10.0.2.0/24 | Virtual Appliance | 10.0.1.4 (NVA IP) |
+
+#### 2. **Forced Tunneling**
+
+**Forced tunneling** ensures that all traffic destined for the internet is sent to your on-premises network (via VPN or ExpressRoute) rather than going directly to the internet.
+
+**Scenario**: You want all internet-bound traffic to pass through an on-premises network for security reasons.
+
+- Set up a custom route for `0.0.0.0/0` (representing all external IPs) with a **next hop** of a **virtual network gateway** (VPN).
+
+**Route Table Example**:
+| Destination | Next Hop Type |
+|--------------|------------------------|
+| 0.0.0.0/0 | Virtual Network Gateway |
+
+---
+
+### 6. **Route Propagation**
+
+Azure **VPN Gateway** and **ExpressRoute Gateway** automatically advertise routes to Azure subnets through **route propagation**. You can enable or disable this feature in the route table settings:
+
+- **Enabled**: Routes learned via the gateway (e.g., from on-premises) are automatically added.
+- **Disabled**: Routes from the gateway are ignored, and you must define all custom routes manually.
+
+---
+
+### 7. **Monitoring and Troubleshooting Route Tables**
+
+To ensure your routes are working as expected, you can use:
+
+- **Effective Routes**: Azure provides a tool to view the effective routes applied to a VM or NIC, including system default and user-defined routes.
+- **Network Watcher**: This tool allows you to diagnose routing issues by testing packet flow, checking connectivity, and tracing hops.
+
+---
+
+### 8. **Important Considerations**
+
+- **Default Routes**: Azure VNets come with default routes that allow connectivity within the VNet and to the internet. Custom routes override these default routes.
+- **Overlap**: Be careful with overlapping routes, as more specific routes (e.g., `/24`) will take precedence over less specific ones (e.g., `/16`).
+- **Route Limits**: Each route table has a limit on the number of routes that can be added (400 for UDRs by default). Be mindful of this when designing complex network architectures.
+
+---
