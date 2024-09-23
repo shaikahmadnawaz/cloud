@@ -154,3 +154,141 @@ When you create a VNet, you need to specify the IP address space in **CIDR** (e.
 This allows you to structure your application into distinct subnets (e.g., web, database, and management), each with its own security and routing rules.
 
 ---
+
+### How to Subnet a VNet in Azure
+
+Subnetting a Virtual Network (VNet) in Azure is the process of dividing the VNet's address space into smaller segments, known as **subnets**. Subnets allow you to organize and manage resources more efficiently by isolating different types of workloads and controlling network traffic. Here's how you can subnet a VNet:
+
+### 1. **Plan the VNet and Subnet Address Spaces**
+
+Before creating subnets, plan your VNet's address space. This involves choosing an IP range for the VNet using **CIDR notation** and then defining smaller ranges for each subnet.
+
+- **Example of a VNet Address Space**: `10.0.0.0/16` (This provides 65,536 IP addresses for the entire VNet).
+- From this range, you can divide it into multiple smaller subnets. For example:
+  - Subnet 1: `10.0.1.0/24` (256 addresses)
+  - Subnet 2: `10.0.2.0/24` (256 addresses)
+  - Subnet 3: `10.0.3.0/28` (16 addresses)
+
+### 2. **Choose Appropriate Subnet Sizes**
+
+Determine how large each subnet needs to be based on the number of resources you plan to deploy. Remember that Azure reserves **5 IP addresses** in each subnet for internal use, so consider this when planning.
+
+- **/24 subnet** provides 256 addresses, but 251 usable.
+- **/28 subnet** provides 16 addresses, but 11 usable.
+
+### 3. **Create the Subnets**
+
+Once you have planned the address spaces, you can create the subnets within the VNet in the Azure portal, through PowerShell, the Azure CLI, or via an ARM template.
+
+#### Using Azure Portal
+
+1. **Navigate to Virtual Networks**:
+
+   - Open the [Azure Portal](https://portal.azure.com) and search for "Virtual Networks".
+   - Select the VNet you want to subnet or create a new one.
+
+2. **Create a Subnet**:
+
+   - In the VNet settings, click on **Subnets**.
+   - Click **+ Subnet** to add a new subnet.
+
+3. **Configure the Subnet**:
+
+   - **Subnet Name**: Provide a meaningful name for the subnet (e.g., "WebSubnet", "DbSubnet").
+   - **Address Range (CIDR block)**: Specify the subnet address range using CIDR notation (e.g., `10.0.1.0/24` for 256 IP addresses).
+   - **Network Security Group (Optional)**: You can associate an NSG to control inbound and outbound traffic for the subnet.
+   - **Route Table (Optional)**: You can also associate a route table if you need custom routing.
+
+4. **Repeat for Additional Subnets**:
+   - Add as many subnets as needed, ensuring that the address spaces do not overlap.
+
+#### Example: Creating Two Subnets
+
+- **VNet Address Space**: `10.0.0.0/16`
+  - **Subnet 1**: `10.0.1.0/24` (for web servers)
+  - **Subnet 2**: `10.0.2.0/24` (for database servers)
+
+Each subnet now has a dedicated segment of the VNet’s address space.
+
+#### Using Azure CLI
+
+You can also create subnets using the Azure CLI. Here’s how to create a subnet:
+
+```bash
+# Create a VNet with a specific address range
+az network vnet create \
+  --resource-group MyResourceGroup \
+  --name MyVNet \
+  --address-prefix 10.0.0.0/16
+
+# Add Subnet 1 (WebSubnet) with 10.0.1.0/24 address space
+az network vnet subnet create \
+  --resource-group MyResourceGroup \
+  --vnet-name MyVNet \
+  --name WebSubnet \
+  --address-prefix 10.0.1.0/24
+
+# Add Subnet 2 (DbSubnet) with 10.0.2.0/24 address space
+az network vnet subnet create \
+  --resource-group MyResourceGroup \
+  --vnet-name MyVNet \
+  --name DbSubnet \
+  --address-prefix 10.0.2.0/24
+```
+
+#### Using Azure PowerShell
+
+Here’s how to create subnets using PowerShell:
+
+```powershell
+# Create a VNet
+$virtualNetwork = New-AzVirtualNetwork `
+  -ResourceGroupName "MyResourceGroup" `
+  -Location "EastUS" `
+  -Name "MyVNet" `
+  -AddressPrefix "10.0.0.0/16"
+
+# Add Subnet 1 (WebSubnet)
+Add-AzVirtualNetworkSubnetConfig `
+  -Name "WebSubnet" `
+  -AddressPrefix "10.0.1.0/24" `
+  -VirtualNetwork $virtualNetwork
+
+# Add Subnet 2 (DbSubnet)
+Add-AzVirtualNetworkSubnetConfig `
+  -Name "DbSubnet" `
+  -AddressPrefix "10.0.2.0/24" `
+  -VirtualNetwork $virtualNetwork
+
+# Commit the changes
+Set-AzVirtualNetwork -VirtualNetwork $virtualNetwork
+```
+
+### 4. **Consider Subnet Security and Traffic Control**
+
+Each subnet can have its own **Network Security Group (NSG)** to control inbound and outbound traffic. For example, you might want to allow HTTP/HTTPS traffic to a web subnet but restrict access to a database subnet.
+
+- **WebSubnet**: NSG allows inbound traffic on port 80 (HTTP) and port 443 (HTTPS).
+- **DbSubnet**: NSG only allows inbound traffic from the WebSubnet on specific ports (e.g., 3306 for MySQL or 1433 for SQL Server).
+
+### 5. **Route Table (Optional)**
+
+You can associate **route tables** with your subnets to customize traffic flow. This can be useful for scenarios such as directing traffic to a firewall or VPN gateway.
+
+### Example Subnet Design:
+
+Assume you are hosting a multi-tier web application with the following components:
+
+- **Frontend (Web Servers)** in a web subnet.
+- **Backend (API Servers)** in an app subnet.
+- **Database (SQL Servers)** in a database subnet.
+
+You might plan your VNet as follows:
+
+| Subnet Name | Address Space | Usage                                |
+| ----------- | ------------- | ------------------------------------ |
+| WebSubnet   | `10.0.1.0/24` | Web servers (public-facing)          |
+| AppSubnet   | `10.0.2.0/24` | API servers (internal communication) |
+| DbSubnet    | `10.0.3.0/24` | Database servers (isolated)          |
+
+---
