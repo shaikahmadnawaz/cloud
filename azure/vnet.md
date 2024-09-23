@@ -92,3 +92,65 @@ Azure Virtual Network (VNet) is a foundational networking service in Microsoft A
 - Building microservices architectures by segregating services using subnets within the same VNet.
 
 ---
+
+### How to Define the Size of a VNet in Azure
+
+When creating a Virtual Network (VNet) in Azure, you define its size by specifying the **IP address space** using **CIDR notation** (Classless Inter-Domain Routing). This determines the range of private IP addresses available within the VNet, which can be subdivided into smaller segments called **subnets**.
+
+Here’s a step-by-step guide to defining the size of a VNet:
+
+### 1. **Choose the IP Address Space**
+
+When you create a VNet, you need to specify the IP address space in **CIDR** (e.g., `10.0.0.0/16`). This defines how many IP addresses are available in your VNet.
+
+- **CIDR Notation**: It specifies both the IP range and the number of bits used for the network prefix.
+
+  - Example: `10.0.0.0/16`
+    - `10.0.0.0` is the starting IP address.
+    - `/16` means the first 16 bits represent the network portion of the address, leaving 16 bits for defining hosts.
+
+- **Size of the VNet**: The `/16` block provides 65,536 IP addresses, allowing you to create multiple subnets within that VNet. Smaller networks (like `/24` or `/28`) provide fewer addresses.
+
+| CIDR Notation | Number of IP Addresses | Usable Addresses |
+| ------------- | ---------------------- | ---------------- |
+| `/16`         | 65,536                 | 65,532           |
+| `/24`         | 256                    | 251              |
+| `/28`         | 16                     | 11               |
+
+### 2. **Plan the Address Space**
+
+- **Default IP Ranges**: Azure uses certain ranges for private VNets:
+  - `10.0.0.0/8`
+  - `172.16.0.0/12`
+  - `192.168.0.0/16`
+- It's essential to avoid conflicts with existing on-premises networks or other VNets if you plan to connect them via **VPN Gateway** or **ExpressRoute**.
+
+### 3. **Subnet Design**
+
+- After defining the IP address space for the VNet, you divide it into **subnets**.
+- For example, if your VNet address space is `10.0.0.0/16`, you could split it into subnets:
+  - `10.0.0.0/24`: Subnet 1 with 256 addresses
+  - `10.0.1.0/24`: Subnet 2 with 256 addresses
+- **Azure Reserved IPs**: Each subnet has 5 reserved IPs (e.g., for Azure routing, gateway, and other internal purposes), so if a subnet is `/24` (256 addresses), only 251 are usable.
+
+### 4. **Choosing the Right VNet Size**
+
+- **Small Applications**: A smaller address space (e.g., `/24`, providing 256 addresses) may be sufficient if you only need a few VMs or services.
+- **Large Applications**: If you plan to scale or integrate with other networks, a larger range (e.g., `/16`, providing 65,536 addresses) might be necessary to avoid future reconfiguration.
+- **Future Growth**: Always consider future expansion. If you expect your VNet to grow, allocate a larger address space upfront (e.g., `/16`), even if your initial subnets are small.
+
+### 5. **Avoiding Overlap with On-Premises Networks**
+
+- If you are setting up a hybrid network (connecting Azure with your on-premises environment), ensure that the VNet’s IP address range doesn’t overlap with your existing on-premises IP ranges.
+- This is important for smooth communication between the on-premises network and Azure resources over **VPN Gateway** or **ExpressRoute**.
+
+### Example of VNet and Subnet Allocation:
+
+- **VNet Address Space**: `10.0.0.0/16` (65,536 addresses)
+  - **Subnet 1**: `10.0.0.0/24` (256 addresses, 251 usable)
+  - **Subnet 2**: `10.0.1.0/24` (256 addresses, 251 usable)
+  - **Subnet 3**: `10.0.2.0/28` (16 addresses, 11 usable)
+
+This allows you to structure your application into distinct subnets (e.g., web, database, and management), each with its own security and routing rules.
+
+---
